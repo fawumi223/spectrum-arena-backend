@@ -1,0 +1,61 @@
+{% extends "drf_yasg/swagger-ui.html" %}
+
+{% block extra_scripts %}
+{{ block.super }}
+
+<script>
+/**
+ * 💫 Spectrum Arena Swagger Smart Auth Script
+ *  - Auto-authorizes after /swagger-login/
+ *  - Auto-clears token after logout or refresh
+ *  - Works seamlessly with drf_yasg + JWT
+ */
+
+window.addEventListener('load', function () {
+  const loginEndpoint = '/api/users/swagger-login/';
+  const logoutEndpoints = ['/api/users/logout/', '/api/token/refresh/'];
+  const originalFetch = window.fetch;
+
+  window.fetch = async (...args) => {
+    const [url, options] = args;
+    const response = await originalFetch(...args);
+
+    // ✅ Auto-login when swagger-login returns JWT
+    if (url.includes(loginEndpoint)) {
+      try {
+        const clone = response.clone();
+        const data = await clone.json();
+
+        if (data.authorization_header) {
+          const token = data.authorization_header;
+          console.log('✅ Auto-authorizing Swagger with:', token);
+
+          if (window.ui && window.ui.preauthorizeApiKey) {
+            window.ui.preauthorizeApiKey('Bearer', token.replace('Bearer ', ''));
+          } else {
+            console.warn('⚠️ Swagger UI preauthorizeApiKey not found');
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not parse login response:', err);
+      }
+    }
+
+    // 🚪 Auto-logout when hitting logout or token refresh endpoints
+    else if (logoutEndpoints.some(e => url.includes(e))) {
+      console.log('🚪 Clearing Swagger authorization...');
+      if (window.ui && window.ui.authActions && window.ui.authActions.logout) {
+        window.ui.authActions.logout('Bearer');
+      } else {
+        // fallback if authActions missing
+        const authorizeBtn = document.querySelector('.auth-wrapper .authorize');
+        if (authorizeBtn) authorizeBtn.click();
+      }
+    }
+
+    return response;
+  };
+});
+</script>
+{% endblock %}
+
