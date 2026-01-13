@@ -70,32 +70,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "core.settings.AllowFontMimeMiddleware",   # <-- IMPORTANT!
 ]
-
-# =========================================================================
-# FONT MIME FIX FOR SAFARI (CLASS MIDDLEWARE)
-# =========================================================================
-class AllowFontMimeMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        response = self.get_response(request)
-        # Allow fonts (Safari requires CORS + Cross-Origin-Resource-Policy)
-        if request.path.endswith((".woff", ".woff2", ".ttf", ".otf")):
-            response["Access-Control-Allow-Origin"] = "*"
-            response["Cross-Origin-Resource-Policy"] = "cross-origin"
-        return response
-
-# =========================================================================
-# MIME TYPES FIX FOR SAFARI
-# =========================================================================
-import mimetypes
-mimetypes.add_type("font/woff", ".woff", strict=True)
-mimetypes.add_type("font/woff2", ".woff2", strict=True)
-mimetypes.add_type("font/ttf", ".ttf", strict=True)
-mimetypes.add_type("font/otf", ".otf", strict=True)
 
 # =========================================================================
 # URLS / WSGI
