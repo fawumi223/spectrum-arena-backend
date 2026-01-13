@@ -278,3 +278,10 @@ CELERY_BEAT_SCHEDULE = {
 # =========================================================================
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Spectrum Arena API",
+    "DESCRIPTION": "Backend API documentation",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+}
+

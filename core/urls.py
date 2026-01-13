@@ -2,6 +2,7 @@
 URL configuration for Spectrum Arena backend.
 """
 
+from django.shortcuts import redirect
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -21,18 +22,22 @@ from drf_spectacular.views import (
 
 from users.views_paystack import paystack_webhook
 
-# -------------------------------------------------------------------------
-# URL patterns
-# -------------------------------------------------------------------------
+
+# ---------------------------------------------------------
+# Redirect root → Swagger UI
+# ---------------------------------------------------------
+def root_redirect(request):
+    return redirect("/api/docs/")
+
+
 urlpatterns = [
-    # ---------------------------------------------------------------------
+    # Redirect base URL
+    path("", root_redirect),
+
     # Admin
-    # ---------------------------------------------------------------------
     path("admin/", admin.site.urls),
 
-    # ---------------------------------------------------------------------
-    # API routes (App includes)
-    # ---------------------------------------------------------------------
+    # API routes
     path("api/users/", include("users.urls")),
     path("api/jobs/", include("jobs.urls")),
     path("api/jobs-sync/", include("jobs_sync.urls")),
@@ -40,25 +45,19 @@ urlpatterns = [
     path("api/savings/", include("savings.urls")),
     path("api/payments/", include("payments.urls")),
 
-    # ---------------------------------------------------------------------
-    # Authentication (JWT)
-    # ---------------------------------------------------------------------
+    # JWT
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
-    # ---------------------------------------------------------------------
-    # Paystack Webhook (NO auth, NO csrf)
-    # ---------------------------------------------------------------------
-    path("webhooks/paystack/", paystack_webhook, name="paystack-webhook"),
+    # Paystack Webhook
+    path("api/webhooks/paystack/", paystack_webhook, name="paystack-webhook"),
 
-    # ---------------------------------------------------------------------
-    # OpenAPI / Swagger / ReDoc
-    # ---------------------------------------------------------------------
+    # Schema / Docs
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
-        name="swagger-ui",
+        name="swagger-ui"
     ),
     path(
         "api/redoc/",
@@ -67,12 +66,7 @@ urlpatterns = [
     ),
 ]
 
-# -------------------------------------------------------------------------
-# Static files serving (DEV ONLY)
-# -------------------------------------------------------------------------
+# DEV static (harmless in production if DEBUG=False)
 if settings.DEBUG:
-    urlpatterns += static(
-        settings.STATIC_URL,
-        document_root=settings.STATIC_ROOT,
-    )
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
