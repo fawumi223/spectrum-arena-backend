@@ -31,7 +31,7 @@ def root_redirect(request):
 
 
 urlpatterns = [
-    # Redirect base URL
+    # Root redirect
     path("", root_redirect),
 
     # Admin
@@ -45,24 +45,20 @@ urlpatterns = [
     path("api/savings/", include("savings.urls")),
     path("api/payments/", include("payments.urls")),
 
-    # JWT endpoints
+    # JWT
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
     # Paystack webhook
     path("api/webhooks/paystack/", paystack_webhook, name="paystack-webhook"),
 
-    # OpenAPI/Swagger schema
+    # Schema / Swagger / Redoc
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-
-    # Swagger UI (with cache disabled for Chrome/mobile correctness)
     path(
         "api/docs/",
-        SpectacularSwaggerView.as_view(url_name="schema", cache_timeout=0),
-        name="swagger-ui"
+        SpectacularSwaggerView.as_view(url_name="schema"),
+        name="swagger-ui",
     ),
-
-    # ReDoc UI
     path(
         "api/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),
@@ -71,9 +67,7 @@ urlpatterns = [
 ]
 
 
-# ---------------------------------------------------------
-# Static files (only served when DEBUG=True)
-# ---------------------------------------------------------
+# DEV static
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
