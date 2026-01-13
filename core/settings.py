@@ -18,12 +18,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 # =========================================================================
-# GIS LIBRARIES (macOS Catalina + MacPorts)
-# =========================================================================
-GDAL_LIBRARY_PATH = "/opt/local/lib/libgdal.dylib"
-GEOS_LIBRARY_PATH = "/opt/local/lib/libgeos_c.dylib"
-
-# =========================================================================
 # SECURITY
 # =========================================================================
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key")
@@ -45,12 +39,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "django.contrib.gis",
 
     # Third-party
     "rest_framework", "rest_framework.authtoken",
     "rest_framework_simplejwt",
-    "rest_framework_gis",
     "corsheaders",
     "drf_spectacular",
 
@@ -89,7 +81,7 @@ WSGI_APPLICATION = "core.wsgi.application"
 # =========================================================================
 DATABASES = {
     "default": {
-        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DB_NAME"),
         "USER": os.getenv("DB_USER"),
         "PASSWORD": os.getenv("DB_PASSWORD"),
@@ -152,6 +144,28 @@ TEMPLATES = [
 ]
 
 # =========================================================================
+# DATABASES
+# =========================================================================
+if os.getenv("DB_NAME"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST"),
+            "PORT": os.getenv("DB_PORT", 5432),
+        }
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+# =========================================================================
 # DJANGO REST FRAMEWORK
 # =========================================================================
 REST_FRAMEWORK = {
@@ -162,6 +176,12 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Spectrum Arena API",
+    "DESCRIPTION": "Backend API for Spectrum Arena",
+    "VERSION": "1.0.0",
 }
 
 # =========================================================================
