@@ -64,7 +64,6 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  # <-- MOVE TO THE TOP
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "core.settings.AllowFontMimeMiddleware"
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
