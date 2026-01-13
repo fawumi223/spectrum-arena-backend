@@ -23,10 +23,11 @@ load_dotenv(BASE_DIR / ".env")
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS = os.getenv(
-    "DJANGO_ALLOWED_HOSTS",
-    "localhost,127.0.0.1"
-).split(",")
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    ".up.railway.app",
+]
 
 # =========================================================================
 # INSTALLED APPS
@@ -34,6 +35,7 @@ ALLOWED_HOSTS = os.getenv(
 INSTALLED_APPS = [
     # Django
     "django.contrib.admin",
+    "drf_spectacular_sidecar",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -59,9 +61,9 @@ INSTALLED_APPS = [
 # MIDDLEWARE
 # =========================================================================
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",  # <-- MOVE TO THE TOP
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "corsheaders.middleware.CorsMiddleware",  # must be above CommonMiddleware
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -221,17 +223,11 @@ TERMII_FROM = os.getenv("TERMII_FROM")
 TERMII_CHANNEL = os.getenv("TERMII_CHANNEL", "generic")
 
 # =========================================================================
-# CORS / CSRF (DEV MODE)
+# CORS / CSRF (DEPLOYMENT SAFE)
 # =========================================================================
+
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True  # REMOVE IN PRODUCTION
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "https://spectrumarena.com",
-]
+CORS_ALLOW_ALL_ORIGINS = True  # you can remove later in production if needed
 
 CORS_EXPOSE_HEADERS = ["Content-Type", "Authorization"]
 
@@ -242,11 +238,20 @@ CORS_ALLOW_HEADERS = [
 
 CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "https://spectrumarena.com",
+]
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
+    "https://*.up.railway.app",    # <-- CRITICAL FOR MOBILE + PROD
 ]
 
 # =========================================================================
