@@ -13,7 +13,6 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
-# DRF Spectacular (Swagger / OpenAPI)
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularSwaggerView,
@@ -23,15 +22,12 @@ from drf_spectacular.views import (
 from users.views_paystack import paystack_webhook
 
 
-# ---------------------------------------------------------
-# Redirect root → Swagger UI
-# ---------------------------------------------------------
 def root_redirect(request):
     return redirect("/api/docs/")
 
 
 urlpatterns = [
-    # Root redirect
+    # Root redirect → Swagger UI
     path("", root_redirect),
 
     # Admin
@@ -49,16 +45,20 @@ urlpatterns = [
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
-    # Paystack webhook
+    # Webhooks (NO AUTH)
     path("api/webhooks/paystack/", paystack_webhook, name="paystack-webhook"),
 
-    # Schema / Swagger / Redoc
+    # OpenAPI Schema (JSON)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+
+    # Swagger UI (uses CDN)
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
     ),
+
+    # ReDoc (optional)
     path(
         "api/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),
@@ -66,8 +66,7 @@ urlpatterns = [
     ),
 ]
 
-
-# DEV static
+# DEV static (safe when DEBUG=False — Whitenoise handles static)
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 

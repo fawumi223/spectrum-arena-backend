@@ -2,18 +2,12 @@
 Django settings for Spectrum Arena backend
 """
 
-# =========================================================================
-# BASE IMPORTS
-# =========================================================================
 import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 from celery.schedules import crontab
 
-# =========================================================================
-# BASE DIRECTORY
-# =========================================================================
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
@@ -33,35 +27,28 @@ ALLOWED_HOSTS = [
 # INSTALLED APPS
 # =========================================================================
 INSTALLED_APPS = [
-    # Django
     "django.contrib.admin",
-    "drf_spectacular_sidecar",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
 
-    # Third-party
     "rest_framework", "rest_framework.authtoken",
     "rest_framework_simplejwt",
     "corsheaders",
     "drf_spectacular",
 
-    # Local apps
-    "users",
-    "jobs",
-    "artisans",
+    "users", "jobs", "artisans",
     "jobs_sync.apps.JobsSyncConfig",
-    "savings",
-    "payments",
-] 
+    "savings", "payments",
+]
 
 # =========================================================================
 # MIDDLEWARE
 # =========================================================================
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # <-- MOVE TO THE TOP
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -72,25 +59,30 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# =========================================================================
-# URLS / WSGI
-# =========================================================================
 ROOT_URLCONF = "core.urls"
 WSGI_APPLICATION = "core.wsgi.application"
 
 # =========================================================================
-# DATABASE (POSTGRES + POSTGIS)
+# DATABASE
 # =========================================================================
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "HOST": os.getenv("DB_HOST", "localhost"),
-        "PORT": os.getenv("DB_PORT", "5432"),
+if os.getenv("DB_NAME"):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "HOST": os.getenv("DB_HOST"),
+            "PORT": os.getenv("DB_PORT", 5432),
+        }
     }
-}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # =========================================================================
 # AUTH
@@ -116,15 +108,11 @@ USE_TZ = True
 # STATIC FILES
 # =========================================================================
 STATIC_URL = "/static/"
-
-# Local dev static directory (keep for React, images, etc.)
-STATICFILES_DIRS = [BASE_DIR / "static"]
-
-# Production static collection directory
 STATIC_ROOT = BASE_DIR / "staticfiles"
-
-# Whitenoise static file compression & cache versioning
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
+if DEBUG:
+    STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # =========================================================================
 # TEMPLATES
@@ -146,29 +134,7 @@ TEMPLATES = [
 ]
 
 # =========================================================================
-# DATABASES
-# =========================================================================
-if os.getenv("DB_NAME"):
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME"),
-            "USER": os.getenv("DB_USER"),
-            "PASSWORD": os.getenv("DB_PASSWORD"),
-            "HOST": os.getenv("DB_HOST"),
-            "PORT": os.getenv("DB_PORT", 5432),
-        }
-    }
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
-
-# =========================================================================
-# DJANGO REST FRAMEWORK
+# REST FRAMEWORK / OPENAPI
 # =========================================================================
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
@@ -182,7 +148,7 @@ REST_FRAMEWORK = {
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Spectrum Arena API",
-    "DESCRIPTION": "Backend API for Spectrum Arena",
+    "DESCRIPTION": "Backend API documentation",
     "VERSION": "1.0.0",
 }
 
@@ -196,7 +162,7 @@ SIMPLE_JWT = {
 }
 
 # =========================================================================
-# EMAIL CONFIG (GMAIL SMTP - ACTIVE)
+# EMAIL CONFIG
 # =========================================================================
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
@@ -214,7 +180,7 @@ PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
 PAYSTACK_BASE_URL = "https://api.paystack.co"
 
 # =========================================================================
-# TERMII SMS (OTP)
+# TERMII SMS
 # =========================================================================
 TERMII_API_KEY = os.getenv("TERMII_API_KEY")
 TERMII_BASE_URL = os.getenv("TERMII_BASE_URL", "https://v3.api.termii.com")
@@ -223,35 +189,17 @@ TERMII_FROM = os.getenv("TERMII_FROM")
 TERMII_CHANNEL = os.getenv("TERMII_CHANNEL", "generic")
 
 # =========================================================================
-# CORS / CSRF (DEPLOYMENT SAFE)
+# CORS / CSRF
 # =========================================================================
-
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True  # you can remove later in production if needed
-
-CORS_EXPOSE_HEADERS = ["Content-Type", "Authorization"]
-
-CORS_ALLOW_HEADERS = [
-    "accept", "authorization", "content-type", "origin",
-    "user-agent", "x-csrftoken", "x-requested-with",
-]
-
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "https://spectrumarena.com",
-]
+CORS_ALLOW_ALL_ORIGINS = True
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:3001",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
-    "https://*.up.railway.app",    # <-- CRITICAL FOR MOBILE + PROD
+    "https://*.up.railway.app",
 ]
 
 # =========================================================================
@@ -278,21 +226,5 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-# =========================================================================
-# DEFAULT PRIMARY KEY
-# =========================================================================
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-SPECTACULAR_SETTINGS = {
-    "TITLE": "Spectrum Arena API",
-    "DESCRIPTION": "Backend API documentation",
-    "VERSION": "1.0.0",
-    "SERVE_INCLUDE_SCHEMA": False,
-    "SWAGGER_UI_SETTINGS": {
-        "displayRequestDuration": True,
-        "tryItOutEnabled": True,
-    },
-    "SWAGGER_UI_DIST": "SIDECAR",
-    "REDOC_DIST": "SIDECAR",
-}
 
