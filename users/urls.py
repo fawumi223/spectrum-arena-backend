@@ -3,21 +3,19 @@ from django.urls import path
 # Existing Paystack webhook
 from users.views_paystack import paystack_webhook
 
-# Auth / onboarding views
+# Auth / onboarding views (temporary no-OTP mode)
 from .views import (
     SignupView,
-    VerifyOTPView,
-    ResendOTPView,
+    VerifyView,
     LoginView,
 )
 
 urlpatterns = [
     # ---------------------------------------------------------------------
-    # AUTH / ONBOARDING
+    # AUTH / ONBOARDING (OTP BYPASSED FOR DEMO)
     # ---------------------------------------------------------------------
     path("signup/", SignupView.as_view(), name="signup"),
-    path("verify-otp/", VerifyOTPView.as_view(), name="verify-otp"),
-    path("resend-otp/", ResendOTPView.as_view(), name="resend-otp"),
+    path("verify/", VerifyView.as_view(), name="verify"),
     path("login/", LoginView.as_view(), name="login"),
 
     # ---------------------------------------------------------------------

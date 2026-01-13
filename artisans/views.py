@@ -1,5 +1,5 @@
-from django.contrib.gis.geos import Point
-from django.contrib.gis.db.models.functions import Distance
+from math import radians, cos, sin, asin, sqrt
+
 from django.db import models
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,6 +12,15 @@ from .serializers import (
     HireRequestSerializer,
     ReviewSerializer,
 )
+
+
+# Utility: Haversine distance in KM
+def haversine(lat1, lon1, lat2, lon2):
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = sin(dlat / 2)**2 + cos(lat1) * cos(lat2) * sin(dlon / 2)**2
+    return 6371 * 2 * asin(sqrt(a))  # Earth radius in KM
 
 
 # -----------------------------------------
@@ -28,14 +37,15 @@ class ArtisanDetailView(APIView):
 
 
 # -----------------------------------------
-# ALL ARTISANS (GeoJSON)
+# ALL ARTISANS
 # -----------------------------------------
 class ArtisanListView(generics.ListAPIView):
     queryset = Artisan.objects.all()
     serializer_class = ArtisanSerializer
 
+
 # -----------------------------------------
-# NEARBY SEARCH
+# NEARBY SEARCH (Haversine)
 # -----------------------------------------
 class NearbyArtisansView(APIView):
     def get(self, request):
@@ -47,22 +57,18 @@ class NearbyArtisansView(APIView):
             return Response({"error": "lat and lng are required"}, status=400)
 
         try:
-            user_location = Point(float(lng), float(lat), srid=4326)
+            user_lat = float(lat)
+            user_lng = float(lng)
         except:
             return Response({"error": "Invalid coordinates"}, status=400)
 
-        artisans = Artisan.objects.annotate(
-            distance=Distance("location", user_location)
-        ).filter(
-            distance__lte=radius * 1000
-        )
+        artisans = Artisan.objects.exclude(latitude__isnull=True).exclude(longitude__isnull=True)
 
-        # SKILL FILTER
+        # Apply optional filters
         skill = request.query_params.get("skill")
         if skill:
             artisans = artisans.filter(skill__icontains=skill)
 
-        # SEARCH TEXT
         q = request.query_params.get("q")
         if q:
             artisans = artisans.filter(
@@ -70,9 +76,17 @@ class NearbyArtisansView(APIView):
                 models.Q(skill__icontains=q)
             )
 
-        artisans = artisans.order_by("distance")
+        # Filter manually by distance
+        results = []
+        for artisan in artisans:
+            dist = haversine(user_lat, user_lng, artisan.latitude, artisan.longitude)
+            if dist <= radius:
+                results.append((dist, artisan))
 
-        serializer = ArtisanSerializer(artisans, many=True)
+        # Sort by distance
+        results.sort(key=lambda x: x[0])
+
+        serializer = ArtisanSerializer([a for _, a in results], many=True)
         return Response(serializer.data)
 
 
@@ -114,7 +128,6 @@ class ArtisanReviewsView(APIView):
 
         reviews = ArtisanReview.objects.filter(artisan=artisan).order_by("-created_at")
         serializer = ReviewSerializer(reviews, many=True)
-
         return Response(serializer.data)
 
 
@@ -129,7 +142,7 @@ class AddReviewView(APIView):
         if not artisan:
             return Response({"error": "Artisan not found"}, status=404)
 
-        review = ArtisanReview.objects.create(
+        ArtisanReview.objects.create(
             artisan=artisan,
             user=request.user,
             rating=request.data.get("rating"),

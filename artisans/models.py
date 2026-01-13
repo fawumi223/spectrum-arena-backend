@@ -1,17 +1,17 @@
 from django.conf import settings
-from django.contrib.gis.db import models
+from django.db import models
 
 
 class Artisan(models.Model):
-
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     full_name = models.CharField(max_length=255)
     skill = models.CharField(max_length=255)
     phone = models.CharField(max_length=20)
     rating = models.FloatField(default=0)
 
-    # GEO LOCATION FIELD
-    location = models.PointField(geography=True, null=True, blank=True)
+    # Replacing PointField with latitude & longitude floats
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
 
     # Extra fields
     address = models.CharField(max_length=255, blank=True)
@@ -24,9 +24,6 @@ class Artisan(models.Model):
         return f"{self.full_name} - {self.skill}"
 
 
-# ------------------------------------------------------
-# HIRE REQUEST MODEL (Step L)
-# ------------------------------------------------------
 class HireRequest(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="hire_requests"
@@ -45,9 +42,6 @@ class HireRequest(models.Model):
         return f"HireRequest by {self.user} for {self.artisan}"
 
 
-# ------------------------------------------------------
-# ARTISAN REVIEW MODEL (Step N)
-# ------------------------------------------------------
 class ArtisanReview(models.Model):
     artisan = models.ForeignKey(
         Artisan, on_delete=models.CASCADE, related_name="reviews"
@@ -60,12 +54,13 @@ class ArtisanReview(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
-        # Save review first
         super().save(*args, **kwargs)
 
-        # Auto-update artisan rating after each review
-        reviews = ArtisanReview.objects.filter(artisan=self.artisan)
-        avg_rating = reviews.aggregate(models.Avg("rating"))["rating__avg"] or 0
+        # Recalculate rating
+        from django.db.models import Avg
+        avg_rating = ArtisanReview.objects.filter(artisan=self.artisan).aggregate(
+            Avg("rating")
+        )["rating__avg"] or 0
 
         self.artisan.rating = round(avg_rating, 1)
         self.artisan.save()
