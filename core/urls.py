@@ -19,6 +19,7 @@ from drf_spectacular.views import (
 from users.views_paystack import paystack_webhook
 from users.views import PhoneTokenObtainPairView
 
+
 def root_redirect(request):
     return redirect("/api/docs/")
 
@@ -27,10 +28,10 @@ urlpatterns = [
     # Root redirect → Swagger UI
     path("", root_redirect),
 
-    # Admin
+    # Admin Dashboard
     path("admin/", admin.site.urls),
 
-    # API routes
+    # ---- API ROUTES ----
     path("api/users/", include("users.urls")),
     path("api/jobs/", include("jobs.urls")),
     path("api/jobs-sync/", include("jobs_sync.urls")),
@@ -38,32 +39,33 @@ urlpatterns = [
     path("api/savings/", include("savings.urls")),
     path("api/payments/", include("payments.urls")),
 
-    # JWT (Phone-based authentication)
+    # ---- JWT AUTH ----
     path("api/token/", PhoneTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
-    # Webhooks (NO AUTH)
+    # ---- WEBHOOKS (NO AUTH) ----
     path("api/webhooks/paystack/", paystack_webhook, name="paystack-webhook"),
 
-    # OpenAPI Schema (JSON)
+    # ---- OPENAPI SCHEMA ----
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
 
-    # Swagger UI
+    # ---- SWAGGER ----
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
-        name="swagger-ui",
+        name="swagger-ui"
     ),
 
-    # ReDoc (optional)
+    # ---- REDOC ----
     path(
         "api/redoc/",
         SpectacularRedocView.as_view(url_name="schema"),
-        name="redoc",
+        name="redoc"
     ),
 ]
 
-# DEV static (safe when DEBUG=False — Whitenoise handles static)
+
+# ---- STATIC IN DEV MODE ----
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
