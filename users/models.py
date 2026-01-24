@@ -11,11 +11,24 @@ from datetime import timedelta
 # Custom User Model
 # -------------------------------------------------------------------------
 class User(AbstractUser):
-    username = None  # Disable username since we use phone numbers
-
+    username = None  # Disable username
     full_name = models.CharField(max_length=150)
     email = models.EmailField(blank=True, null=True)
     phone_number = models.CharField(max_length=15, unique=True)
+
+    # ---------------------------------------------------------------------
+    # ROLE SYSTEM (UPPERCASE)
+    # ---------------------------------------------------------------------
+    ROLE_CHOICES = [
+        ("CLIENT", "Client"),
+        ("ARTISAN", "Artisan"),
+        ("COMPANY", "Company"),
+    ]
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default="CLIENT"
+    )
 
     # OTP & Verification
     otp = models.CharField(max_length=6, blank=True, null=True)
@@ -40,7 +53,6 @@ class User(AbstractUser):
         ("STANDARD", "Standard"),
         ("PREMIUM", "Premium"),
     ]
-
     plan_type = models.CharField(
         max_length=20,
         choices=PLAN_CHOICES,
@@ -49,7 +61,6 @@ class User(AbstractUser):
     job_post_limit = models.PositiveIntegerField(default=3)
 
     date_joined = models.DateTimeField(default=timezone.now)
-
     USERNAME_FIELD = "phone_number"
     REQUIRED_FIELDS = []
 
@@ -58,11 +69,8 @@ class User(AbstractUser):
     def __str__(self):
         return f"{self.full_name} ({self.phone_number})"
 
-    # ---------------------------------------------------------------------
-    # OTP Logic (Improved for Termii + Security)
-    # ---------------------------------------------------------------------
+    # OTP Logic
     def generate_otp(self, channel="PHONE"):
-        # Always 6 digits, no trimmed leading zeros
         otp = str(random.randint(100000, 999999)).zfill(6)
         self.otp = otp
         self.otp_created_at = timezone.now()
@@ -75,20 +83,16 @@ class User(AbstractUser):
             return True
         return timezone.now() > self.otp_created_at + timedelta(minutes=expiry_minutes)
 
-    # ---------------------------------------------------------------------
-    # Plan upgrade logic
-    # ---------------------------------------------------------------------
+    # Plan upgrade
     def update_plan(self, new_plan):
         plan_map = {
             "BASIC": 3,
             "STANDARD": 10,
             "PREMIUM": 25,
         }
-
         new_plan = new_plan.upper()
         if new_plan not in plan_map:
             raise ValueError("Invalid plan type.")
-
         self.plan_type = new_plan
         self.job_post_limit = plan_map[new_plan]
         self.save(update_fields=["plan_type", "job_post_limit"])
@@ -120,7 +124,7 @@ class Transaction(models.Model):
     status = models.CharField(
         max_length=20,
         choices=STATUS_CHOICES,
-        default="PENDING"
+        default="PENDING",
     )
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)

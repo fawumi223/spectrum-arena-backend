@@ -26,6 +26,35 @@ class Wallet(models.Model):
         default=0,
     )
 
+    # NEW — PROVIDUS VIRTUAL ACCOUNT FIELDS (SIMULATION OR LIVE)
+    nuban_account_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text="Virtual NUBAN account number from Providus"
+    )
+
+    nuban_account_name = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Account name assigned by Providus"
+    )
+
+    providus_customer_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Customer reference ID from Providus"
+    )
+
+    providus_ref = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text="Reference used for recon and webhook routing"
+    )
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -106,8 +135,7 @@ class SavingsPlan(models.Model):
     )
 
     wallet = models.ForeignKey(
-        Wallet,
-        on_delete=models.CASCADE,
+        Wallet, on_delete=models.CASCADE,
         related_name="savings_plans",
     )
 

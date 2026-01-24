@@ -17,17 +17,19 @@ from .models import (
     Wallet,
     SavingsPlan,
 )
+
 from .serializers import (
     SavedCardSerializer,
     SavingsPlanCreateSerializer,
     SavingsWithdrawSerializer,
 )
+
 from .services.paystack import charge_authorization
 from .tasks import unlock_savings_plan
 
 
 # --------------------------------------------------
-# LIST SAVED CARDS (STEP 3)
+# LIST SAVED CARDS
 # --------------------------------------------------
 class SavedCardsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -44,7 +46,7 @@ class SavedCardsView(APIView):
 
 
 # --------------------------------------------------
-# INIT WALLET FUNDING (FIRST-TIME CARD ENTRY)
+# INIT WALLET FUNDING (FIRST CARD ENTRY)
 # --------------------------------------------------
 class InitWalletFundingView(APIView):
     permission_classes = [IsAuthenticated]
@@ -98,7 +100,7 @@ class InitWalletFundingView(APIView):
 
 
 # --------------------------------------------------
-# INIT SAVINGS FUNDING (FIRST-TIME CARD ENTRY)
+# INIT SAVINGS FUNDING
 # --------------------------------------------------
 class InitSavingsFundingView(APIView):
     permission_classes = [IsAuthenticated]
@@ -115,7 +117,7 @@ class InitSavingsFundingView(APIView):
 
         payload = {
             "email": request.user.email,
-            "amount": int(float(amount) * 100),  # kobo
+            "amount": int(float(amount) * 100),
             "metadata": {
                 "payment_type": "savings",
                 "user_id": request.user.id,
@@ -154,7 +156,7 @@ class InitSavingsFundingView(APIView):
 
 
 # --------------------------------------------------
-# CREATE SAVINGS / THRIFT PLAN (LEDGER LOCK)
+# CREATE SAVINGS PLAN (LOCK FUNDS)
 # --------------------------------------------------
 class CreateSavingsPlanView(APIView):
     permission_classes = [IsAuthenticated]
@@ -171,7 +173,6 @@ class CreateSavingsPlanView(APIView):
         if serializer.is_valid():
             savings = serializer.save()
 
-            # ⏰ Schedule auto-unlock
             unlock_savings_plan.apply_async(
                 args=[savings.id],
                 eta=savings.locked_until,
@@ -191,7 +192,7 @@ class CreateSavingsPlanView(APIView):
 
 
 # --------------------------------------------------
-# WITHDRAW SAVINGS (NORMAL OR EARLY BREAK)
+# WITHDRAW SAVINGS (END OR EARLY BREAK)
 # --------------------------------------------------
 class WithdrawSavingsView(APIView):
     permission_classes = [IsAuthenticated]
@@ -212,18 +213,13 @@ class WithdrawSavingsView(APIView):
         wallet = savings.wallet
         amount = savings.amount
 
-        # --------------------------------
-        # EARLY BREAK PENALTY (10%)
-        # --------------------------------
         if savings.status == "locked":
             penalty = (Decimal("0.10") * amount).quantize(Decimal("0.01"))
             payout = amount - penalty
-
             wallet.balance += payout
             savings.penalty_amount = penalty
             savings.status = "broken"
             savings.broken_at = timezone.now()
-
         else:
             wallet.balance += amount
             savings.status = "unlocked"
@@ -236,14 +232,14 @@ class WithdrawSavingsView(APIView):
             {
                 "message": "Savings withdrawn successfully.",
                 "amount_received": str(wallet.balance),
-                "penalty": str(savings.penalty_amount),
+                "penalty": str(savings.penalty_amount or 0),
             },
             status=status.HTTP_200_OK,
         )
 
 
 # --------------------------------------------------
-# CHARGE SAVED CARD (WALLET OR SAVINGS + IDEMPOTENCY)
+# CHARGE SAVED CARD + IDEMPOTENCY
 # --------------------------------------------------
 class ChargeSavedCardView(APIView):
     permission_classes = [IsAuthenticated]
@@ -261,9 +257,6 @@ class ChargeSavedCardView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------------
-        # IDEMPOTENCY GUARD
-        # --------------------------------
         existing = IdempotencyKey.objects.filter(
             user=request.user,
             key=idem_key,
@@ -273,9 +266,6 @@ class ChargeSavedCardView(APIView):
         if existing:
             return Response(existing.response, status=status.HTTP_200_OK)
 
-        # --------------------------------
-        # FETCH SAVED CARD
-        # --------------------------------
         card = SavedCard.objects.filter(
             user=request.user,
             reusable=True,
@@ -288,12 +278,9 @@ class ChargeSavedCardView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # --------------------------------
-        # CHARGE VIA PAYSTACK
-        # --------------------------------
         paystack_res = charge_authorization(
             email=request.user.email,
-            amount=int(float(amount) * 100),  # kobo
+            amount=int(float(amount) * 100),
             authorization_code=card.authorization_code,
             metadata={
                 "payment_type": payment_type,
@@ -330,8 +317,24 @@ class ChargeSavedCardView(APIView):
             response=response_data,
         )
 
-        # IMPORTANT:
-        # Wallet/Savings crediting happens ONLY in webhook
-
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+# --------------------------------------------------
+# WALLET BALANCE → NEW ENDPOINT
+# --------------------------------------------------
+from rest_framework.decorators import api_view, permission_classes
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def wallet_me(request):
+    try:
+        wallet = Wallet.objects.get(user=request.user)
+        return Response({
+            "balance": float(wallet.balance),
+            "locked_balance": float(wallet.locked_balance),
+            "currency": "NGN"
+        })
+    except Wallet.DoesNotExist:
+        return Response({"detail": "Wallet not found"}, status=404)
 

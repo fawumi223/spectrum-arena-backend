@@ -8,10 +8,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -20,6 +17,7 @@ from drf_spectacular.views import (
 )
 
 from users.views_paystack import paystack_webhook
+from users.serializers import PhoneTokenObtainPairView
 
 
 def root_redirect(request):
@@ -41,8 +39,8 @@ urlpatterns = [
     path("api/savings/", include("savings.urls")),
     path("api/payments/", include("payments.urls")),
 
-    # JWT
-    path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    # JWT (Phone-based authentication)
+    path("api/token/", PhoneTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
 
     # Webhooks (NO AUTH)
@@ -51,7 +49,7 @@ urlpatterns = [
     # OpenAPI Schema (JSON)
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
 
-    # Swagger UI (uses CDN)
+    # Swagger UI
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
