@@ -3,17 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from django.db import transaction
 
-from .models import User
-from .serializers import (
-    SignupSerializer,
-    LoginSerializer,
-    PhoneTokenObtainPairSerializer,
-)
-
+from .serializers import SignupSerializer, LoginSerializer, PhoneTokenObtainPairSerializer
 from payments.services.wallet import ensure_wallet_exists
-from rest_framework_simplejwt.views import TokenObtainPairView
 
 
 # -------------------------------------------------------------------------
@@ -67,7 +61,7 @@ class LoginView(APIView):
 
 
 # -------------------------------------------------------------------------
-# JWT PHONE TOKEN VIEW
+# JWT PHONE TOKEN VIEW (STANDARD /api/token/)
 # -------------------------------------------------------------------------
 class PhoneTokenObtainPairView(TokenObtainPairView):
     serializer_class = PhoneTokenObtainPairSerializer
