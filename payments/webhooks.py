@@ -1,57 +1,72 @@
 from decimal import Decimal
-from django.db import transaction
+from django.utils import timezone
 
-from .models import Wallet, SavingsPlan, IdempotencyKey
+from .models import PaystackTransaction, Wallet, SavingsPlan
 
 
-@transaction.atomic
 def handle_successful_payment(data):
     """
-    This function is called ONLY after Paystack confirms payment success.
-    It must be idempotent and atomic.
+    Handles Paystack charge.success webhook events.
+    Supports:
+    - Wallet top-up
+    - Savings funding (future use)
     """
 
     reference = data.get("reference")
-    metadata = data.get("metadata", {}) or {}
+    amount_kobo = data.get("amount")
+    metadata = data.get("metadata", {})
 
-    payment_type = metadata.get("payment_type")
     user_id = metadata.get("user_id")
+    payment_type = metadata.get("payment_type", "wallet")
     savings_id = metadata.get("savings_id")
 
-    # ------------------------------
-    # IDEMPOTENCY GUARD (webhook-level)
-    # ------------------------------
-    if IdempotencyKey.objects.filter(
-        key=reference,
-        endpoint="paystack-webhook",
-    ).exists():
-        return  # already processed
+    # Convert Paystack amount (kobo -> naira)
+    amount = Decimal(amount_kobo) / 100
 
-    amount = Decimal(data["amount"]) / Decimal("100")
+    # Prevent duplicate webhook processing
+    trx, created = PaystackTransaction.objects.get_or_create(
+        reference=reference,
+        defaults={
+            "user_id": user_id,
+            "payment_type": payment_type,
+            "amount": amount,
+            "status": "success",
+            "raw_payload": data,
+        }
+    )
 
-    # ------------------------------
-    # CREDIT LOGIC
-    # ------------------------------
-    wallet = Wallet.objects.select_for_update().get(user_id=user_id)
+    if not created:
+        # Already processed
+        return
 
+    # -------------------------------------------
+    # WALLET FUNDING
+    # -------------------------------------------
     if payment_type == "wallet":
+        try:
+            wallet = Wallet.objects.get(user_id=user_id)
+        except Wallet.DoesNotExist:
+            return  # user deleted or inconsistency
+
         wallet.balance += amount
         wallet.save(update_fields=["balance"])
 
+    # -------------------------------------------
+    # SAVINGS FUNDING (OPTIONAL FUTURE USE)
+    # -------------------------------------------
     elif payment_type == "savings" and savings_id:
-        savings = SavingsPlan.objects.select_for_update().get(id=savings_id)
+        try:
+            savings = SavingsPlan.objects.get(id=savings_id, wallet__user_id=user_id)
+        except SavingsPlan.DoesNotExist:
+            return
 
-        # savings.amount grows ONLY from confirmed payments
-        savings.amount += amount
-        savings.save(update_fields=["amount"])
+        savings.status = "locked"
+        savings.locked_at = timezone.now()
+        savings.amount = amount
+        savings.save(update_fields=["status", "locked_at", "amount"])
 
-    # ------------------------------
-    # SAVE IDEMPOTENCY RECORD
-    # ------------------------------
-    IdempotencyKey.objects.create(
-        user_id=user_id,
-        key=reference,
-        endpoint="paystack-webhook",
-        response={"status": "credited"},
-    )
+    # -------------------------------------------
+    # NOTHING ELSE TO HANDLE
+    # -------------------------------------------
+    return
 

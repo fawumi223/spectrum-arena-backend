@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.utils import timezone
-
 from .models import SavedCard, Wallet, SavingsPlan
 
 
@@ -23,9 +22,12 @@ class SavedCardSerializer(serializers.ModelSerializer):
 
 
 # --------------------------------------------------
-# SAVINGS / THRIFT CREATION
+# SAVINGS / THRIFT CREATION (USER INPUT)
 # --------------------------------------------------
 class SavingsPlanCreateSerializer(serializers.Serializer):
+    PLAN_CHOICES = ["SAVINGS", "THRIFT"]
+
+    plan_type = serializers.ChoiceField(choices=PLAN_CHOICES)
     amount = serializers.DecimalField(max_digits=12, decimal_places=2)
     duration_days = serializers.IntegerField(min_value=1)
 
@@ -44,10 +46,11 @@ class SavingsPlanCreateSerializer(serializers.Serializer):
         wallet = self.context["wallet"]
         amount = validated_data["amount"]
         duration_days = validated_data["duration_days"]
+        plan_type = validated_data["plan_type"]
 
         locked_until = timezone.now() + timezone.timedelta(days=duration_days)
 
-        # 🔒 LOCK FUNDS (LEDGER ISOLATION)
+        # 🔒 LOCK FUNDS
         wallet.balance -= amount
         wallet.locked_balance += amount
         wallet.save(update_fields=["balance", "locked_balance"])
@@ -55,6 +58,7 @@ class SavingsPlanCreateSerializer(serializers.Serializer):
         savings = SavingsPlan.objects.create(
             user=wallet.user,
             wallet=wallet,
+            plan_type=plan_type,
             amount=amount,
             locked_until=locked_until,
             status="locked",

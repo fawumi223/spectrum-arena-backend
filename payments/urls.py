@@ -3,47 +3,29 @@ from django.urls import path
 from .views import (
     SavedCardsView,
     InitWalletFundingView,
-    InitSavingsFundingView,
-    ChargeSavedCardView,
     CreateSavingsPlanView,
     WithdrawSavingsView,
+    wallet_me,
 )
-
-from .views_webhook import paystack_webhook
-from .views_wallet import InitNUBANView   # ⭐ NEW IMPORT
+from .views_wallet import InitNUBANView
+from .views_webhook import paystack_webhook, simulate_webhook
 
 
 urlpatterns = [
-    # --------------------------------------------
-    # Saved cards
-    # --------------------------------------------
+    # Cards
     path("saved-cards/", SavedCardsView.as_view(), name="saved-cards"),
 
-    # --------------------------------------------
-    # First-time funding (Paystack hosted page)
-    # --------------------------------------------
+    # Wallet / Funding
     path("init-wallet-funding/", InitWalletFundingView.as_view(), name="init-wallet-funding"),
-    path("init-savings-funding/", InitSavingsFundingView.as_view(), name="init-savings-funding"),
+    path("wallet/init-nuban/", InitNUBANView.as_view(), name="init-nuban"),
+    path("wallet/me/", wallet_me, name="wallet-me"),
 
-    # --------------------------------------------
-    # Savings / Thrift
-    # --------------------------------------------
+    # Savings
     path("savings/create/", CreateSavingsPlanView.as_view(), name="savings-create"),
     path("savings/<int:savings_id>/withdraw/", WithdrawSavingsView.as_view(), name="savings-withdraw"),
 
-    # --------------------------------------------
-    # Repeat funding (saved card)
-    # --------------------------------------------
-    path("charge-card/", ChargeSavedCardView.as_view(), name="charge-card"),
-
-    # --------------------------------------------
-    # Wallet → Generate Providus NUBAN (virtual account)
-    # --------------------------------------------
-    path("wallet/init-nuban/", InitNUBANView.as_view(), name="init-nuban"),  # ⭐ NEW ROUTE
-
-    # --------------------------------------------
-    # Webhooks (NO AUTH, PAYSTACK ONLY)
-    # --------------------------------------------
+    # Webhooks
     path("webhooks/paystack/", paystack_webhook, name="paystack-webhook"),
+    path("webhooks/simulate/", simulate_webhook, name="simulate-webhook"),
 ]
 

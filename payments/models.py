@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 User = settings.AUTH_USER_MODEL
 
@@ -14,46 +15,14 @@ class Wallet(models.Model):
         related_name="wallet",
     )
 
-    balance = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-    )
+    balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    locked_balance = models.DecimalField(max_digits=12, decimal_places=2, default=0)
 
-    locked_balance = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-    )
-
-    # NEW — PROVIDUS VIRTUAL ACCOUNT FIELDS (SIMULATION OR LIVE)
-    nuban_account_number = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-        help_text="Virtual NUBAN account number from Providus"
-    )
-
-    nuban_account_name = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text="Account name assigned by Providus"
-    )
-
-    providus_customer_id = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text="Customer reference ID from Providus"
-    )
-
-    providus_ref = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        help_text="Reference used for recon and webhook routing"
-    )
+    # PROVIDUS VIRTUAL ACCOUNT FIELDS
+    nuban_account_number = models.CharField(max_length=20, blank=True, null=True)
+    nuban_account_name = models.CharField(max_length=100, blank=True, null=True)
+    providus_customer_id = models.CharField(max_length=100, blank=True, null=True)
+    providus_ref = models.CharField(max_length=100, blank=True, null=True)
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -63,7 +32,7 @@ class Wallet(models.Model):
 
 
 # --------------------------------------------------
-# SAVED CARD (WITH FAILURE TRACKING)
+# SAVED CARD
 # --------------------------------------------------
 class SavedCard(models.Model):
     user = models.ForeignKey(
@@ -73,7 +42,6 @@ class SavedCard(models.Model):
     )
 
     authorization_code = models.CharField(max_length=255, unique=True)
-
     card_type = models.CharField(max_length=50)
     last4 = models.CharField(max_length=4)
     exp_month = models.CharField(max_length=2)
@@ -114,63 +82,63 @@ class IdempotencyKey(models.Model):
 
 
 # --------------------------------------------------
-# SAVINGS / THRIFT PLAN (LEDGER-LOCKED)
+# SAVINGS / THRIFT PLAN
 # --------------------------------------------------
 class SavingsPlan(models.Model):
-    PLAN_TYPES = (
-        ("SAVINGS", "Savings"),
-        ("THRIFT", "Thrift"),
-    )
-
+    PLAN_TYPES = (("SAVINGS", "Savings"), ("THRIFT", "Thrift"))
     STATUS_CHOICES = (
         ("locked", "Locked"),
         ("unlocked", "Unlocked"),
         ("broken", "Broken Early"),
     )
 
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="savings_plans",
-    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="savings_plans")
+    wallet = models.ForeignKey("Wallet", on_delete=models.CASCADE, related_name="savings_plans")
 
-    wallet = models.ForeignKey(
-        Wallet, on_delete=models.CASCADE,
-        related_name="savings_plans",
-    )
-
-    plan_type = models.CharField(
-        max_length=20,
-        choices=PLAN_TYPES,
-        default="SAVINGS",
-    )
-
-    amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-    )
-
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default="locked",
-    )
+    plan_type = models.CharField(max_length=20, choices=PLAN_TYPES, default="SAVINGS")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="locked")
 
     locked_at = models.DateTimeField(auto_now_add=True)
     locked_until = models.DateTimeField()
-
     unlocked_at = models.DateTimeField(null=True, blank=True)
     broken_at = models.DateTimeField(null=True, blank=True)
 
-    penalty_amount = models.DecimalField(
-        max_digits=12,
-        decimal_places=2,
-        default=0,
-    )
-
+    penalty_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.plan_type} • {self.amount} • {self.user}"
+
+
+# --------------------------------------------------
+# PAYSTACK TRANSACTIONS (WEBHOOK LEDGER)
+# --------------------------------------------------
+class PaystackTransaction(models.Model):
+    STATUS_CHOICES = (
+        ("success", "Success"),
+        ("failed", "Failed"),
+        ("pending", "Pending"),
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name="paystack_txns",
+        null=True,
+        blank=True
+    )
+    reference = models.CharField(max_length=100, unique=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    payment_type = models.CharField(max_length=50, default="wallet")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="success")
+    raw_payload = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.reference} • {self.status}"
 

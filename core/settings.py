@@ -183,10 +183,25 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # =========================================================================
-# PAYSTACK
+# PAYSTACK (TEST & LIVE SUPPORT)
 # =========================================================================
-PAYSTACK_PUBLIC_KEY = os.getenv("PAYSTACK_PUBLIC_KEY")
-PAYSTACK_SECRET_KEY = os.getenv("PAYSTACK_SECRET_KEY")
+
+# TEST MODE (used when DEBUG=True)
+PAYSTACK_PUBLIC_KEY_TEST = os.getenv("PAYSTACK_PUBLIC_KEY_TEST")
+PAYSTACK_SECRET_KEY_TEST = os.getenv("PAYSTACK_SECRET_KEY_TEST")
+
+# LIVE MODE (used when DEBUG=False)
+PAYSTACK_PUBLIC_KEY_LIVE = os.getenv("PAYSTACK_PUBLIC_KEY_LIVE")
+PAYSTACK_SECRET_KEY_LIVE = os.getenv("PAYSTACK_SECRET_KEY_LIVE")
+
+# SELECT KEYS BASED ON DEBUG
+if DEBUG:
+    PAYSTACK_PUBLIC_KEY = PAYSTACK_PUBLIC_KEY_TEST
+    PAYSTACK_SECRET_KEY = PAYSTACK_SECRET_KEY_TEST
+else:
+    PAYSTACK_PUBLIC_KEY = PAYSTACK_PUBLIC_KEY_LIVE
+    PAYSTACK_SECRET_KEY = PAYSTACK_SECRET_KEY_LIVE
+
 PAYSTACK_BASE_URL = "https://api.paystack.co"
 
 # =========================================================================

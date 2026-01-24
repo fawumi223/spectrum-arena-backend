@@ -1,36 +1,30 @@
 from decimal import Decimal
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
 
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.decorators import api_view, permission_classes
+from drf_spectacular.utils import extend_schema, OpenApiResponse
 
-from django.conf import settings
-from django.db import transaction
-from django.utils import timezone
-
-import requests
-
-from .models import (
-    SavedCard,
-    IdempotencyKey,
-    Wallet,
-    SavingsPlan,
-)
-
+from .models import SavedCard, Wallet, SavingsPlan
 from .serializers import (
     SavedCardSerializer,
     SavingsPlanCreateSerializer,
     SavingsWithdrawSerializer,
 )
 
-from .services.paystack import charge_authorization
-from .tasks import unlock_savings_plan
-
 
 # --------------------------------------------------
 # LIST SAVED CARDS
 # --------------------------------------------------
+@extend_schema(
+    responses={200: SavedCardSerializer(many=True)},
+    tags=["Payments"],
+)
 class SavedCardsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -46,118 +40,31 @@ class SavedCardsView(APIView):
 
 
 # --------------------------------------------------
-# INIT WALLET FUNDING (FIRST CARD ENTRY)
+# INIT WALLET FUNDING (TEST MODE → SIMULATION ONLY)
 # --------------------------------------------------
+@extend_schema(
+    responses={200: OpenApiResponse(description="Returns test pay URL")},
+    tags=["Wallet"],
+)
 class InitWalletFundingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        amount = request.data.get("amount")
-
-        if not amount:
-            return Response(
-                {"detail": "Amount is required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        payload = {
-            "email": request.user.email,
-            "amount": int(float(amount) * 100),  # kobo
-            "metadata": {
-                "payment_type": "wallet",
-                "user_id": request.user.id,
-            },
-            "callback_url": settings.PAYSTACK_CALLBACK_URL,
-        }
-
-        headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        response = requests.post(
-            "https://api.paystack.co/transaction/initialize",
-            json=payload,
-            headers=headers,
-            timeout=30,
-        )
-
-        data = response.json()
-
-        if not data.get("status"):
-            return Response(
-                {"detail": "Unable to initialize wallet funding"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        return Response(
-            {
-                "authorization_url": data["data"]["authorization_url"],
-                "reference": data["data"]["reference"],
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({
+            "message": "TEST MODE: Wallet funding simulated.",
+            "authorization_url": "https://paystack.com/pay/test-mode",
+            "reference": "TEST-WALLET-REF",
+        })
 
 
 # --------------------------------------------------
-# INIT SAVINGS FUNDING
+# CREATE SAVINGS PLAN
 # --------------------------------------------------
-class InitSavingsFundingView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        amount = request.data.get("amount")
-        savings_id = request.data.get("savings_id")
-
-        if not amount or not savings_id:
-            return Response(
-                {"detail": "Amount and savings_id are required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        payload = {
-            "email": request.user.email,
-            "amount": int(float(amount) * 100),
-            "metadata": {
-                "payment_type": "savings",
-                "user_id": request.user.id,
-                "savings_id": savings_id,
-            },
-            "callback_url": settings.PAYSTACK_CALLBACK_URL,
-        }
-
-        headers = {
-            "Authorization": f"Bearer {settings.PAYSTACK_SECRET_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        response = requests.post(
-            "https://api.paystack.co/transaction/initialize",
-            json=payload,
-            headers=headers,
-            timeout=30,
-        )
-
-        data = response.json()
-
-        if not data.get("status"):
-            return Response(
-                {"detail": "Unable to initialize savings funding"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        return Response(
-            {
-                "authorization_url": data["data"]["authorization_url"],
-                "reference": data["data"]["reference"],
-            },
-            status=status.HTTP_200_OK,
-        )
-
-
-# --------------------------------------------------
-# CREATE SAVINGS PLAN (LOCK FUNDS)
-# --------------------------------------------------
+@extend_schema(
+    request=SavingsPlanCreateSerializer,
+    responses={201: OpenApiResponse(description="Savings created & locked")},
+    tags=["Savings"],
+)
 class CreateSavingsPlanView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -169,31 +76,26 @@ class CreateSavingsPlanView(APIView):
             data=request.data,
             context={"wallet": wallet},
         )
+        serializer.is_valid(raise_exception=True)
+        savings = serializer.save()
 
-        if serializer.is_valid():
-            savings = serializer.save()
-
-            unlock_savings_plan.apply_async(
-                args=[savings.id],
-                eta=savings.locked_until,
-            )
-
-            return Response(
-                {
-                    "message": "Savings plan created and locked successfully.",
-                    "savings_id": savings.id,
-                    "amount": str(savings.amount),
-                    "locked_until": savings.locked_until,
-                },
-                status=status.HTTP_201_CREATED,
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "message": "Savings plan created & locked successfully.",
+            "savings_id": savings.id,
+            "plan_type": savings.plan_type,
+            "amount": str(savings.amount),
+            "locked_until": savings.locked_until,
+        }, status=201)
 
 
 # --------------------------------------------------
-# WITHDRAW SAVINGS (END OR EARLY BREAK)
+# WITHDRAW SAVINGS (W1: EARLY BREAK PENALTY)
 # --------------------------------------------------
+@extend_schema(
+    request=SavingsWithdrawSerializer,
+    responses={200: OpenApiResponse(description="Savings withdrawn")},
+    tags=["Savings"],
+)
 class WithdrawSavingsView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -216,10 +118,12 @@ class WithdrawSavingsView(APIView):
         if savings.status == "locked":
             penalty = (Decimal("0.10") * amount).quantize(Decimal("0.01"))
             payout = amount - penalty
+
             wallet.balance += payout
             savings.penalty_amount = penalty
             savings.status = "broken"
             savings.broken_at = timezone.now()
+
         else:
             wallet.balance += amount
             savings.status = "unlocked"
@@ -228,103 +132,23 @@ class WithdrawSavingsView(APIView):
         wallet.save(update_fields=["balance"])
         savings.save()
 
-        return Response(
-            {
-                "message": "Savings withdrawn successfully.",
-                "amount_received": str(wallet.balance),
-                "penalty": str(savings.penalty_amount or 0),
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response({
+            "message": "Savings withdrawn.",
+            "savings_id": savings.id,
+            "amount": str(amount),
+            "penalty": str(savings.penalty_amount or "0"),
+            "wallet_balance": str(wallet.balance),
+            "status": savings.status,
+        }, status=200)
 
 
 # --------------------------------------------------
-# CHARGE SAVED CARD + IDEMPOTENCY
+# WALLET BALANCE ENDPOINT
 # --------------------------------------------------
-class ChargeSavedCardView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        amount = request.data.get("amount")
-        idem_key = request.headers.get("Idempotency-Key")
-
-        payment_type = request.data.get("payment_type", "wallet")
-        savings_id = request.data.get("savings_id")
-
-        if not amount or not idem_key:
-            return Response(
-                {"detail": "Amount and Idempotency-Key are required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        existing = IdempotencyKey.objects.filter(
-            user=request.user,
-            key=idem_key,
-            endpoint="charge-card",
-        ).first()
-
-        if existing:
-            return Response(existing.response, status=status.HTTP_200_OK)
-
-        card = SavedCard.objects.filter(
-            user=request.user,
-            reusable=True,
-            is_active=True,
-        ).first()
-
-        if not card:
-            return Response(
-                {"detail": "No saved card found"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        paystack_res = charge_authorization(
-            email=request.user.email,
-            amount=int(float(amount) * 100),
-            authorization_code=card.authorization_code,
-            metadata={
-                "payment_type": payment_type,
-                "user_id": request.user.id,
-                "savings_id": savings_id,
-            },
-        )
-
-        if not paystack_res.get("status"):
-            response_data = {
-                "success": False,
-                "message": paystack_res.get("message"),
-            }
-
-            IdempotencyKey.objects.create(
-                user=request.user,
-                key=idem_key,
-                endpoint="charge-card",
-                response=response_data,
-            )
-
-            return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
-
-        response_data = {
-            "success": True,
-            "reference": paystack_res["data"]["reference"],
-            "message": "Charge initiated. Awaiting confirmation.",
-        }
-
-        IdempotencyKey.objects.create(
-            user=request.user,
-            key=idem_key,
-            endpoint="charge-card",
-            response=response_data,
-        )
-
-        return Response(response_data, status=status.HTTP_200_OK)
-
-
-# --------------------------------------------------
-# WALLET BALANCE → NEW ENDPOINT
-# --------------------------------------------------
-from rest_framework.decorators import api_view, permission_classes
-
+@extend_schema(
+    tags=["Wallet"],
+    responses={200: OpenApiResponse(description="Wallet balance")},
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def wallet_me(request):
@@ -333,7 +157,7 @@ def wallet_me(request):
         return Response({
             "balance": float(wallet.balance),
             "locked_balance": float(wallet.locked_balance),
-            "currency": "NGN"
+            "currency": "NGN",
         })
     except Wallet.DoesNotExist:
         return Response({"detail": "Wallet not found"}, status=404)
