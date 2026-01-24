@@ -5,12 +5,19 @@ from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.db import transaction
 
-from .serializers import SignupSerializer, LoginSerializer
+from .models import User
+from .serializers import (
+    SignupSerializer,
+    LoginSerializer,
+    PhoneTokenObtainPairSerializer,
+)
+
 from payments.services.wallet import ensure_wallet_exists
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 
 # -------------------------------------------------------------------------
-# SIGNUP VIEW (DEMO MODE — AUTO VERIFY + WALLET CREATE)
+# SIGNUP VIEW (DEMO: AUTO VERIFY + AUTO WALLET + NO OTP)
 # -------------------------------------------------------------------------
 class SignupView(APIView):
     permission_classes = [AllowAny]
@@ -22,10 +29,12 @@ class SignupView(APIView):
         with transaction.atomic():
             user = serializer.save()
 
-            # Wallet auto-create
-            ensure_wallet_exists(user)
+            user.is_verified = True
+            user.otp = None
+            user.otp_created_at = None
+            user.save(update_fields=["is_verified", "otp", "otp_created_at"])
 
-            # Token issuance
+            ensure_wallet_exists(user)
             refresh = RefreshToken.for_user(user)
 
         return Response(
@@ -45,13 +54,21 @@ class SignupView(APIView):
 
 
 # -------------------------------------------------------------------------
-# LOGIN VIEW
+# LOGIN VIEW (PHONE + PASSWORD)
 # -------------------------------------------------------------------------
 class LoginView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = LoginSerializer
 
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=200)
+
+
+# -------------------------------------------------------------------------
+# JWT PHONE TOKEN VIEW
+# -------------------------------------------------------------------------
+class PhoneTokenObtainPairView(TokenObtainPairView):
+    serializer_class = PhoneTokenObtainPairSerializer
 

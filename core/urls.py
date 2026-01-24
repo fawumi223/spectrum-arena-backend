@@ -17,8 +17,7 @@ from drf_spectacular.views import (
 )
 
 from users.views_paystack import paystack_webhook
-from users.serializers import PhoneTokenObtainPairView
-
+from users.views import PhoneTokenObtainPairView
 
 def root_redirect(request):
     return redirect("/api/docs/")
