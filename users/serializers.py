@@ -5,15 +5,26 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
 
 
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
 # SIGNUP SERIALIZER
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
 class SignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
         fields = ["full_name", "email", "phone_number", "password", "role"]
+
+    def validate_role(self, value):
+        """
+        Accept both lowercase and uppercase roles.
+        Normalize to uppercase to fit ROLE_CHOICES = ['CLIENT','ARTISAN','COMPANY']
+        """
+        value = value.upper()
+        valid_roles = [choice[0] for choice in User.ROLE_CHOICES]
+        if value not in valid_roles:
+            raise serializers.ValidationError(f"Role must be one of: {valid_roles}")
+        return value
 
     def validate(self, attrs):
         email = attrs.get("email")
@@ -35,9 +46,9 @@ class SignupSerializer(serializers.ModelSerializer):
         return user
 
 
-# ---------------------------------------------------------
-# LOGIN SERIALIZER (PHONE + PASSWORD)
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
+# LOGIN SERIALIZER (PHONE + PASSWORD) → RETURNS JWT
+# -------------------------------------------------------------------
 class LoginSerializer(serializers.Serializer):
     phone_number = serializers.CharField()
     password = serializers.CharField(write_only=True)
@@ -64,9 +75,9 @@ class LoginSerializer(serializers.Serializer):
         }
 
 
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
 # JWT TOKEN SERIALIZER FOR /api/token/
-# ---------------------------------------------------------
+# -------------------------------------------------------------------
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 class PhoneTokenObtainPairSerializer(TokenObtainPairSerializer):

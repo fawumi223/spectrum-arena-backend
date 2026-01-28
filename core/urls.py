@@ -2,13 +2,9 @@
 URL configuration for Spectrum Arena backend.
 """
 
-from django.shortcuts import redirect
 from django.contrib import admin
 from django.urls import path, include
-from django.conf import settings
-from django.conf.urls.static import static
-
-from rest_framework_simplejwt.views import TokenRefreshView
+from django.http import JsonResponse
 
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -16,16 +12,12 @@ from drf_spectacular.views import (
     SpectacularRedocView,
 )
 
-from users.views_paystack import paystack_webhook
-from users.views import PhoneTokenObtainPairView
-
 
 def root_redirect(request):
-    return redirect("/api/docs/")
+    return JsonResponse({"message": "Spectrum Arena API is running"})
 
 
 urlpatterns = [
-    # Root redirect → Swagger UI
     path("", root_redirect),
 
     # Admin Dashboard
@@ -40,32 +32,18 @@ urlpatterns = [
     path("api/payments/", include("payments.urls")),
 
     # ---- JWT AUTH ----
-    path("api/token/", PhoneTokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/", include("users.jwt_urls")),   # <-- FIXED (new)
 
     # ---- WEBHOOKS (NO AUTH) ----
-    path("api/webhooks/paystack/", paystack_webhook, name="paystack-webhook"),
+    path("api/webhooks/", include("payments.webhook_urls")),  # <-- FIXED (new)
 
     # ---- OPENAPI SCHEMA ----
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
 
     # ---- SWAGGER ----
-    path(
-        "api/docs/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
-        name="swagger-ui"
-    ),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
 
     # ---- REDOC ----
-    path(
-        "api/redoc/",
-        SpectacularRedocView.as_view(url_name="schema"),
-        name="redoc"
-    ),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
-
-
-# ---- STATIC IN DEV MODE ----
-if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 

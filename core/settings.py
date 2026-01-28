@@ -8,6 +8,9 @@ from datetime import timedelta
 from dotenv import load_dotenv
 from celery.schedules import crontab
 
+# =========================================================================
+# BASE
+# =========================================================================
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
@@ -153,13 +156,15 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "EXCEPTION_HANDLER": "rest_framework.views.exception_handler",
 }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Spectrum Arena API",
-    "DESCRIPTION": "Backend API documentation",
     "VERSION": "1.0.0",
+    "SERVERS": [
+        {"url": "https://web-production-bc7396.up.railway.app", "description": "Production"},
+        {"url": "http://127.0.0.1:8000", "description": "Local"},
+    ],
 }
 
 # =========================================================================
@@ -172,7 +177,7 @@ SIMPLE_JWT = {
 }
 
 # =========================================================================
-# EMAIL CONFIG
+# EMAIL
 # =========================================================================
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = os.getenv("EMAIL_HOST", "smtp.gmail.com")
@@ -183,18 +188,13 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 # =========================================================================
-# PAYSTACK (TEST & LIVE SUPPORT)
+# PAYSTACK
 # =========================================================================
-
-# TEST MODE (used when DEBUG=True)
 PAYSTACK_PUBLIC_KEY_TEST = os.getenv("PAYSTACK_PUBLIC_KEY_TEST")
 PAYSTACK_SECRET_KEY_TEST = os.getenv("PAYSTACK_SECRET_KEY_TEST")
-
-# LIVE MODE (used when DEBUG=False)
 PAYSTACK_PUBLIC_KEY_LIVE = os.getenv("PAYSTACK_PUBLIC_KEY_LIVE")
 PAYSTACK_SECRET_KEY_LIVE = os.getenv("PAYSTACK_SECRET_KEY_LIVE")
 
-# SELECT KEYS BASED ON DEBUG
 if DEBUG:
     PAYSTACK_PUBLIC_KEY = PAYSTACK_PUBLIC_KEY_TEST
     PAYSTACK_SECRET_KEY = PAYSTACK_SECRET_KEY_TEST
@@ -205,7 +205,7 @@ else:
 PAYSTACK_BASE_URL = "https://api.paystack.co"
 
 # =========================================================================
-# TERMII SMS
+# TERMII
 # =========================================================================
 TERMII_API_KEY = os.getenv("TERMII_API_KEY")
 TERMII_BASE_URL = os.getenv("TERMII_BASE_URL", "https://v3.api.termii.com")
@@ -214,32 +214,48 @@ TERMII_FROM = os.getenv("TERMII_FROM")
 TERMII_CHANNEL = os.getenv("TERMII_CHANNEL", "generic")
 
 # =========================================================================
-# CORS / CSRF
+# CORS / CSRF  ✅ FIXED
 # =========================================================================
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "https://*.up.railway.app",
-    "https://spectrum-arena-frontend-build-production.up.railway.app",
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "authorization",
+    "content-type",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
 ]
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
-    "https://*.up.railway.app",
-    "https://spectrum-arena-frontend-build-production.up.railway.app",
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
 ]
+
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CSRF_TRUSTED_ORIGINS = [
+        "http://localhost",
+        "http://127.0.0.1",
+    ]
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "https://spectrum-arena-frontend-build-production.up.railway.app",
+    ]
+    CSRF_TRUSTED_ORIGINS = [
+        "https://spectrum-arena-frontend-build-production.up.railway.app",
+        "https://web-production-bc7396.up.railway.app",
+    ]
 
 # =========================================================================
 # CELERY / REDIS
 # =========================================================================
 REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_ACCEPT_CONTENT = ["json"]
