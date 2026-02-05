@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
-from celery.schedules import crontab
+# from celery.schedules import crontab   # DISABLED FOR RAILWAY
 
 # =========================================================================
 # BASE
@@ -47,9 +47,11 @@ INSTALLED_APPS = [
     "users",
     "jobs",
     "artisans",
-    "jobs_sync.apps.JobsSyncConfig",
-    "savings",
-    "payments",
+
+    # TEMP DISABLED — causing Railway boot crash
+    # "jobs_sync.apps.JobsSyncConfig",
+    # "savings",
+    # "payments",
 ]
 
 # =========================================================================
@@ -214,27 +216,9 @@ TERMII_FROM = os.getenv("TERMII_FROM")
 TERMII_CHANNEL = os.getenv("TERMII_CHANNEL", "generic")
 
 # =========================================================================
-# CORS / CSRF  ✅ FIXED
+# CORS / CSRF
 # =========================================================================
 CORS_ALLOW_CREDENTIALS = True
-
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "authorization",
-    "content-type",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]
-
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
 
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
@@ -252,34 +236,19 @@ else:
     ]
 
 # =========================================================================
-# CELERY / REDIS
+# CELERY DISABLED (TEMP FOR RAILWAY)
 # =========================================================================
-REDIS_URL = os.getenv("REDIS_URL", "redis://127.0.0.1:6379/0")
+# Redis not provisioned on Railway yet — disabling to prevent boot crash
 
-CELERY_BROKER_URL = REDIS_URL
-CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_ACCEPT_CONTENT = ["json"]
-CELERY_TASK_SERIALIZER = "json"
-CELERY_RESULT_SERIALIZER = "json"
-CELERY_TIMEZONE = "Africa/Lagos"
-CELERY_ENABLE_UTC = False
-
-CELERY_BEAT_SCHEDULE = {
-    "daily-job-sync": {
-        "task": "jobs_sync.tasks.auto_sync_jobs",
-        "schedule": crontab(hour=0, minute=0),
-    },
-    "unlock-savings": {
-        "task": "savings.tasks.unlock_matured_savings",
-        "schedule": crontab(hour=0, minute=0),
-    },
-}
+# REDIS_URL = os.getenv("REDIS_URL")
+# CELERY_BROKER_URL = REDIS_URL
+# CELERY_RESULT_BACKEND = REDIS_URL
+# CELERY_ACCEPT_CONTENT = ["json"]
+# CELERY_TASK_SERIALIZER = "json"
+# CELERY_RESULT_SERIALIZER = "json"
+# CELERY_TIMEZONE = "Africa/Lagos"
+# CELERY_ENABLE_UTC = False
+# CELERY_BEAT_SCHEDULE = {}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-import os
-
-STATIC_URL = '/static/'
-
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
