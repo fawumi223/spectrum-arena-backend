@@ -16,6 +16,7 @@ from .serializers import (
     PhoneTokenObtainPairSerializer,
 )
 
+# Wallet import kept (we'll re-enable later safely)
 from payments.services.wallet import ensure_wallet_exists
 
 
@@ -27,7 +28,7 @@ from payments.services.wallet import ensure_wallet_exists
     request=SignupSerializer,
     responses={201: OpenApiResponse(description="Signup successful")},
     tags=["Users"],
-    auth=None,   # Swagger: public
+    auth=None,
 )
 class SignupView(APIView):
     permission_classes = [AllowAny]
@@ -42,12 +43,15 @@ class SignupView(APIView):
             with transaction.atomic():
                 user = serializer.save()
 
-                # Mark user verified (demo-safe)
+                # Demo-safe: auto verify user
                 user.is_verified = True
                 user.save(update_fields=["is_verified"])
 
-                # Ensure wallet exists
-                ensure_wallet_exists(user)
+                # --------------------------------------------------
+                # TEMP DISABLED — wallet causing Railway crash
+                # --------------------------------------------------
+                # ensure_wallet_exists(user)
+                # --------------------------------------------------
 
                 # Generate JWT tokens
                 refresh = RefreshToken.for_user(user)
