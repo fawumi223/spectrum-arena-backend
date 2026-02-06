@@ -16,8 +16,9 @@ from .serializers import (
     PhoneTokenObtainPairSerializer,
 )
 
-# Wallet import kept (we'll re-enable later safely)
-from payments.services.wallet import ensure_wallet_exists
+# IMPORTANT:
+# Payments wallet import TEMPORARILY REMOVED to stop Railway boot crash
+# from payments.services.wallet import ensure_wallet_exists
 
 
 # ---------------------------------------------------------
@@ -47,11 +48,8 @@ class SignupView(APIView):
                 user.is_verified = True
                 user.save(update_fields=["is_verified"])
 
-                # --------------------------------------------------
-                # TEMP DISABLED — wallet causing Railway crash
-                # --------------------------------------------------
+                # Wallet creation TEMP DISABLED
                 # ensure_wallet_exists(user)
-                # --------------------------------------------------
 
                 # Generate JWT tokens
                 refresh = RefreshToken.for_user(user)

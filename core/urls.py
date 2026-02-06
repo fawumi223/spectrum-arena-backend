@@ -20,30 +20,25 @@ def root_redirect(request):
 urlpatterns = [
     path("", root_redirect),
 
-    # Admin Dashboard
+    # Admin
     path("admin/", admin.site.urls),
 
-    # ---- API ROUTES ----
+    # ---- CORE ACTIVE APPS ----
     path("api/users/", include("users.urls")),
-    path("api/jobs/", include("jobs.urls")),
-    path("api/jobs-sync/", include("jobs_sync.urls")),
-    path("api/artisans/", include("artisans.urls")),
-    path("api/savings/", include("savings.urls")),
-    path("api/payments/", include("payments.urls")),
+    path("api/payments/", include("payments.urls")),  # ✅ RE-ENABLED
+
+    # ---- STILL DISABLED ----
+    # path("api/jobs/", include("jobs.urls")),
+    # path("api/jobs-sync/", include("jobs_sync.urls")),
+    # path("api/artisans/", include("artisans.urls")),
+    # path("api/savings/", include("savings.urls")),
 
     # ---- JWT AUTH ----
-    path("api/token/", include("users.jwt_urls")),   # <-- FIXED (new)
+    path("api/token/", include("users.jwt_urls")),
 
-    # ---- WEBHOOKS (NO AUTH) ----
-    path("api/webhooks/", include("payments.webhook_urls")),  # <-- FIXED (new)
-
-    # ---- OPENAPI SCHEMA ----
+    # ---- OPENAPI ----
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-
-    # ---- SWAGGER ----
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
-
-    # ---- REDOC ----
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
