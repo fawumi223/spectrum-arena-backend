@@ -25,13 +25,13 @@ urlpatterns = [
 
     # ---- CORE ACTIVE APPS ----
     path("api/users/", include("users.urls")),
-    path("api/payments/", include("payments.urls")),  # ✅ RE-ENABLED
+    path("api/payments/", include("payments.urls")),
+    path("api/savings/", include("savings.urls")),  # ✅ SAVINGS ENABLED
 
     # ---- STILL DISABLED ----
     # path("api/jobs/", include("jobs.urls")),
     # path("api/jobs-sync/", include("jobs_sync.urls")),
     # path("api/artisans/", include("artisans.urls")),
-    # path("api/savings/", include("savings.urls")),
 
     # ---- JWT AUTH ----
     path("api/token/", include("users.jwt_urls")),
