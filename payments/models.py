@@ -50,7 +50,6 @@ class SavedCard(models.Model):
 
     reusable = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
-
     failed_attempts = models.PositiveSmallIntegerField(default=0)
     last_failed_at = models.DateTimeField(null=True, blank=True)
 
@@ -103,8 +102,8 @@ class SavingsPlan(models.Model):
     locked_until = models.DateTimeField()
     unlocked_at = models.DateTimeField(null=True, blank=True)
     broken_at = models.DateTimeField(null=True, blank=True)
-
     penalty_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -141,4 +140,3 @@ class PaystackTransaction(models.Model):
 
     def __str__(self):
         return f"{self.reference} • {self.status}"
-

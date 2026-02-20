@@ -49,17 +49,18 @@ class SignupSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        # Remove email if empty or not provided
+        # Remove email if empty
         email = validated_data.get("email")
         if not email:
             validated_data.pop("email", None)
 
         password = validated_data.pop("password")
 
-        # IMPORTANT: use create_user, not create
-        user = User.objects.create_user(**validated_data)
-        user.set_password(password)
-        user.save()
+        # CORRECT WAY: pass password into create_user
+        user = User.objects.create_user(
+            password=password,
+            **validated_data
+        )
 
         return user
 
@@ -75,21 +76,15 @@ class LoginSerializer(serializers.Serializer):
         phone = attrs.get("phone_number")
         password = attrs.get("password")
 
-        user = authenticate(username=phone, password=password)
+        # Authenticate using phone_number
+        user = authenticate(phone_number=phone, password=password)
+
         if not user:
             raise serializers.ValidationError("Invalid phone number or password.")
 
-        refresh = RefreshToken.for_user(user)
-
+        # RETURN USER OBJECT (view expects this)
         return {
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "user": {
-                "id": user.id,
-                "full_name": user.full_name,
-                "phone_number": user.phone_number,
-                "role": user.role,
-            },
+            "user": user
         }
 
 

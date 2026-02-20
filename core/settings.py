@@ -49,7 +49,7 @@ INSTALLED_APPS = [
     "artisans",
 
     # TEMP DISABLED — causing Railway boot crash
-    # "jobs_sync.apps.JobsSyncConfig",
+    "jobs_sync.apps.JobsSyncConfig",
     "savings",
     "payments",
 ]

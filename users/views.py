@@ -16,14 +16,13 @@ from .serializers import (
     PhoneTokenObtainPairSerializer,
 )
 
-# IMPORTANT:
-# Payments wallet import TEMPORARILY REMOVED to stop Railway boot crash
-# from payments.services.wallet import ensure_wallet_exists
+# WALLET SERVICE (RE-ENABLED)
+from payments.services.wallet import ensure_wallet_exists
 
 
-# ---------------------------------------------------------
-# SIGNUP (PUBLIC)
-# ---------------------------------------------------------
+# =========================================================
+# SIGNUP (DEMO MODE - AUTO LOGIN + WALLET INIT)
+# =========================================================
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(
     request=SignupSerializer,
@@ -38,24 +37,31 @@ class SignupView(APIView):
         serializer = SignupSerializer(data=request.data)
 
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Signup failed",
+                    "errors": serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         try:
             with transaction.atomic():
                 user = serializer.save()
 
-                # Demo-safe: auto verify user
+                # Auto verify user (demo mode)
                 user.is_verified = True
                 user.save(update_fields=["is_verified"])
 
-                # Wallet creation TEMP DISABLED
-                # ensure_wallet_exists(user)
+                # 🔥 WALLET AUTO-CREATION RESTORED
+                ensure_wallet_exists(user)
 
-                # Generate JWT tokens
                 refresh = RefreshToken.for_user(user)
 
             return Response(
                 {
+                    "status": "success",
                     "message": "Signup successful",
                     "access": str(refresh.access_token),
                     "refresh": str(refresh),
@@ -71,14 +77,18 @@ class SignupView(APIView):
 
         except Exception as e:
             return Response(
-                {"detail": f"Signup failed: {str(e)}"},
+                {
+                    "status": "error",
+                    "message": "Signup failed",
+                    "detail": str(e),
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
-# ---------------------------------------------------------
-# LOGIN (PUBLIC)
-# ---------------------------------------------------------
+# =========================================================
+# LOGIN
+# =========================================================
 @method_decorator(csrf_exempt, name="dispatch")
 @extend_schema(
     request=LoginSerializer,
@@ -91,13 +101,41 @@ class LoginView(APIView):
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+        if not serializer.is_valid():
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Login failed",
+                    "errors": serializer.errors,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = serializer.validated_data["user"]
+
+        refresh = RefreshToken.for_user(user)
+
+        return Response(
+            {
+                "status": "success",
+                "message": "Login successful",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "id": user.id,
+                    "full_name": user.full_name,
+                    "phone_number": user.phone_number,
+                    "role": user.role,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
-# ---------------------------------------------------------
-# JWT /token/ (PUBLIC)
-# ---------------------------------------------------------
+# =========================================================
+# JWT TOKEN (PHONE)
+# =========================================================
 @extend_schema(
     request=PhoneTokenObtainPairSerializer,
     responses={200: OpenApiResponse(description="JWT Token Pair")},
