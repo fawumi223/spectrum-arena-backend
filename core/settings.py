@@ -211,21 +211,16 @@ TERMII_CHANNEL = os.getenv("TERMII_CHANNEL", "generic")
 # =========================================================================
 CORS_ALLOW_CREDENTIALS = True
 
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-    CSRF_TRUSTED_ORIGINS = [
-        "http://localhost",
-        "http://127.0.0.1",
-    ]
-else:
-    CORS_ALLOWED_ORIGINS = [
-        "https://spectrum-arena-frontend.vercel.app",
-    ]
+CORS_ALLOW_ALL_ORIGINS = False
 
-    CSRF_TRUSTED_ORIGINS = [
-        "https://spectrum-arena-frontend.vercel.app",
-        "https://web-production-c2159.up.railway.app",
-    ]
+CORS_ALLOWED_ORIGINS = [
+    "https://spectrum-arena-frontend.vercel.app",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://spectrum-arena-frontend.vercel.app",
+    "https://web-production-c2159.up.railway.app",
+]
 
 # =========================================================================
 # DEFAULT
