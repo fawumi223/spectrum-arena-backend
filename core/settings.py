@@ -146,7 +146,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
+        "rest_framework.permissions.AllowAny",
     ),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
@@ -207,14 +207,26 @@ TERMII_FROM = os.getenv("TERMII_FROM")
 TERMII_CHANNEL = os.getenv("TERMII_CHANNEL", "generic")
 
 # =========================================================================
-# CORS / CSRF
+# CORS / CSRF  (CRITICAL FIX)
 # =========================================================================
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_HEADERS = [
+    "content-type",
+    "authorization",
+    "accept",
+    "origin",
+    "x-requested-with",
+]
 
-CORS_ALLOWED_ORIGINS = [
-    "https://spectrum-arena-frontend.vercel.app",
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
