@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
-# from celery.schedules import crontab   # DISABLED FOR RAILWAY
 
 # =========================================================================
 # BASE
@@ -47,8 +46,6 @@ INSTALLED_APPS = [
     "users",
     "jobs",
     "artisans",
-
-    # TEMP DISABLED — causing Railway boot crash
     "jobs_sync.apps.JobsSyncConfig",
     "savings",
     "payments",
@@ -75,16 +72,10 @@ WSGI_APPLICATION = "core.wsgi.application"
 # =========================================================================
 # DATABASE
 # =========================================================================
-if os.getenv("DB_NAME"):
+if os.getenv("DATABASE_URL"):
+    import dj_database_url
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME"),
-            "USER": os.getenv("DB_USER"),
-            "PASSWORD": os.getenv("DB_PASSWORD"),
-            "HOST": os.getenv("DB_HOST"),
-            "PORT": os.getenv("DB_PORT", 5432),
-        }
+        "default": dj_database_url.parse(os.getenv("DATABASE_URL"))
     }
 else:
     DATABASES = {
@@ -164,7 +155,7 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Spectrum Arena API",
     "VERSION": "1.0.0",
     "SERVERS": [
-        {"url": "https://web-production-bc7396.up.railway.app", "description": "Production"},
+        {"url": "https://web-production-c2159.up.railway.app", "description": "Production"},
         {"url": "http://127.0.0.1:8000", "description": "Local"},
     ],
 }
@@ -228,27 +219,15 @@ if DEBUG:
     ]
 else:
     CORS_ALLOWED_ORIGINS = [
-        "https://spectrum-arena-frontend-build-production.up.railway.app",
+        "https://spectrum-arena-frontend.vercel.app",
     ]
+
     CSRF_TRUSTED_ORIGINS = [
-        "https://spectrum-arena-frontend-build-production.up.railway.app",
-        "https://web-production-bc7396.up.railway.app",
+        "https://spectrum-arena-frontend.vercel.app",
+        "https://web-production-c2159.up.railway.app",
     ]
 
 # =========================================================================
-# CELERY DISABLED (TEMP FOR RAILWAY)
+# DEFAULT
 # =========================================================================
-# Redis not provisioned on Railway yet — disabling to prevent boot crash
-
-# REDIS_URL = os.getenv("REDIS_URL")
-# CELERY_BROKER_URL = REDIS_URL
-# CELERY_RESULT_BACKEND = REDIS_URL
-# CELERY_ACCEPT_CONTENT = ["json"]
-# CELERY_TASK_SERIALIZER = "json"
-# CELERY_RESULT_SERIALIZER = "json"
-# CELERY_TIMEZONE = "Africa/Lagos"
-# CELERY_ENABLE_UTC = False
-# CELERY_BEAT_SCHEDULE = {}
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
